@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StoryVerse | Share Your Story</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cloudflare.com">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
@@ -55,23 +55,23 @@
                 <input type="hidden" id="edit-story-id">
 
                 <div class="input-group">
-                    <input type="text" id="story-author" required placeholder=" ">
+                    <input type="text" id="story-author" required placeholder=" " aria-label="Author name">
                     <label for="story-author">Your Name</label>
                 </div>
                 <div class="input-group">
-                    <input type="text" id="story-title" required placeholder=" ">
+                    <input type="text" id="story-title" required placeholder=" " aria-label="Story title">
                     <label for="story-title">Story Title</label>
                 </div>
                 <div class="input-group">
-                    <textarea id="story-content" rows="7" required placeholder=" "></textarea>
+                    <textarea id="story-content" rows="7" required placeholder=" " aria-label="Story content"></textarea>
                     <label for="story-content">Write your magic here...</label>
                 </div>
 
-                <button type="submit" id="submit-btn" class="submit-btn">
+                <button type="submit" id="submit-btn" class="submit-btn" aria-label="Publish story">
                     <span id="submit-btn-text">Publish Story</span>
                     <i class="fa-solid fa-paper-plane" id="submit-btn-icon"></i>
                 </button>
-                <button type="button" id="cancel-edit-btn" class="cancel-btn hidden">Cancel Edit</button>
+                <button type="button" id="cancel-edit-btn" class="cancel-btn hidden" aria-label="Cancel editing">Cancel Edit</button>
             </form>
         </section>
 
@@ -81,7 +81,7 @@
                 <div class="search-icon-wrapper">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </div>
-                <input type="text" id="search-stories" class="search-input" placeholder="Search stories by title or author...">
+                <input type="text" id="search-stories" class="search-input" placeholder="Search stories by title or author..." aria-label="Search stories">
             </div>
             
             <h2>Recent Stories</h2>
