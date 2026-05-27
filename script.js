@@ -1,30 +1,52 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyBVXMtwqKofge0x2iMECY5wv7Y3gL0kpZ4",
+  authDomain: "storyverse-d4c86.firebaseapp.com",
+  projectId: "storyverse-d4c86",
+  storageBucket: "storyverse-d4c86.firebasestorage.app",
+  messagingSenderId: "331288557238",
+  appId: "1:331288557238:web:be9297c70e9b1f8dd3d817"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// DOM Elements
 const themeToggle = document.getElementById('theme-toggle');
 const storyForm = document.getElementById('story-form');
-const editStoryId = document.getElementById('edit-story-id');
 const storyAuthor = document.getElementById('story-author');
 const storyTitle = document.getElementById('story-title');
 const storyContent = document.getElementById('story-content');
 const storiesContainer = document.getElementById('stories-container');
 const colorDots = document.querySelectorAll('.color-dot');
-const formTitle = document.getElementById('form-title');
-const submitBtnText = document.getElementById('submit-btn-text');
-const submitBtnIcon = document.getElementById('submit-btn-icon');
-const cancelEditBtn = document.getElementById('cancel-edit-btn');
 const searchInput = document.getElementById('search-stories');
 
 let stories = [];
 
-// Initialize stories from localStorage with error handling
-const initializeStories = () => {
+// Load stories from Firestore
+const loadStories = async () => {
     try {
-        stories = JSON.parse(localStorage.getItem('stories_v6')) || [];
-    } catch (error) {
-        console.error('Error loading stories from localStorage:', error);
+        const q = query(collection(db, 'stories'), orderBy('createdAt', 'desc'));
+        const querySnapshot = await getDocs(q);
         stories = [];
-        showToast('Error loading stories. Starting fresh.');
+        querySnapshot.forEach((doc) => {
+            stories.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        displayStories();
+    } catch (error) {
+        console.error('Error loading stories:', error);
+        showToast('Error loading stories');
     }
 };
 
+// Initialize Theme
 const initThemeEngine = () => {
     try {
         const savedTheme = localStorage.getItem('theme') || 'light';
@@ -37,6 +59,7 @@ const initThemeEngine = () => {
     }
 };
 
+// Theme Toggle
 themeToggle.addEventListener('click', () => {
     try {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -48,6 +71,7 @@ themeToggle.addEventListener('click', () => {
     }
 });
 
+// Color Picker
 colorDots.forEach(dot => {
     dot.addEventListener('click', () => {
         try {
@@ -62,12 +86,14 @@ colorDots.forEach(dot => {
     });
 });
 
+// Calculate Reading Time
 const calculateReadingTime = (text) => {
     const words = text.trim().split(/\s+/).filter(w => w.length > 0).length;
     const minutes = Math.ceil(words / 200);
     return minutes === 0 ? '1 min read' : `${minutes} min read`;
 };
 
+// Format Date
 const formatDate = () => {
     const date = new Date();
     return date.toLocaleDateString('en-US', { 
@@ -77,13 +103,14 @@ const formatDate = () => {
     });
 };
 
+// Display Stories
 const displayStories = (filterKeyword = "") => {
     try {
         storiesContainer.innerHTML = '';
-        const query = filterKeyword.toLowerCase().trim();
+        const query_str = filterKeyword.toLowerCase().trim();
         const filtered = stories.filter(s => 
-            s.title.toLowerCase().includes(query) || 
-            s.author.toLowerCase().includes(query)
+            s.title.toLowerCase().includes(query_str) || 
+            s.author.toLowerCase().includes(query_str)
         );
 
         if (filtered.length === 0) {
@@ -121,16 +148,12 @@ const displayStories = (filterKeyword = "") => {
                                 <i class="fa-regular fa-share-from-square"></i> <span>Share</span>
                             </button>
                         </div>
-                        <div class="management-btns">
-                            <button class="action-btn edit-btn" data-action="edit" data-id="${story.id}" aria-label="Edit story"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button class="action-btn delete-btn" data-action="delete" data-id="${story.id}" aria-label="Delete story"><i class="fa-solid fa-trash-can"></i></button>
-                        </div>
                     </div>
                 </div>`;
             storiesContainer.appendChild(card);
         });
 
-        // Add event listeners to all action buttons
+        // Add event listeners
         document.querySelectorAll('[data-action]').forEach(btn => {
             btn.addEventListener('click', (e) => handleStoryAction(e));
         });
@@ -140,6 +163,7 @@ const displayStories = (filterKeyword = "") => {
     }
 };
 
+// Handle Story Actions
 const handleStoryAction = (e) => {
     const action = e.currentTarget.dataset.action;
     const id = e.currentTarget.dataset.id;
@@ -151,24 +175,19 @@ const handleStoryAction = (e) => {
         case 'share':
             shareStory(id);
             break;
-        case 'edit':
-            startEditStory(id);
-            break;
-        case 'delete':
-            deleteStory(id, e);
-            break;
     }
 };
 
+// Search
 if(searchInput) {
     searchInput.addEventListener('input', (e) => displayStories(e.target.value));
 }
 
-storyForm.addEventListener('submit', (e) => {
+// Submit Form
+storyForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     try {
-        // Validate inputs
         const author = storyAuthor.value.trim();
         const title = storyTitle.value.trim();
         const content = storyContent.value.trim();
@@ -178,85 +197,29 @@ storyForm.addEventListener('submit', (e) => {
             return;
         }
         
-        const id = editStoryId.value;
         const rTime = calculateReadingTime(content);
 
-        if (id) {
-            stories = stories.map(s => 
-                s.id === id ? { 
-                    ...s, 
-                    author: author, 
-                    title: title, 
-                    content: content, 
-                    readTime: rTime 
-                } : s
-            );
-            showToast("Story updated successfully!");
-            resetFormState();
-        } else {
-            stories.unshift({ 
-                id: Date.now().toString(), 
-                author: author, 
-                title: title, 
-                content: content, 
-                likes: 0, 
-                isLiked: false, 
-                readTime: rTime, 
-                date: formatDate()
-            });
-            showToast("Story published live!");
-        }
-        saveAndRefresh();
+        await addDoc(collection(db, 'stories'), {
+            author: author,
+            title: title,
+            content: content,
+            likes: 0,
+            isLiked: false,
+            readTime: rTime,
+            date: formatDate(),
+            createdAt: serverTimestamp()
+        });
+
+        showToast("Story published live!");
         storyForm.reset();
+        await loadStories();
     } catch (error) {
         console.error('Error submitting story:', error);
         showToast('Error saving story');
     }
 });
 
-const startEditStory = (id) => {
-    try {
-        const s = stories.find(x => x.id === id);
-        if (!s) {
-            showToast('Story not found');
-            return;
-        }
-        editStoryId.value = s.id;
-        storyAuthor.value = s.author;
-        storyTitle.value = s.title;
-        storyContent.value = s.content;
-        storyAuthor.dispatchEvent(new Event('input'));
-        storyTitle.dispatchEvent(new Event('input'));
-        storyContent.dispatchEvent(new Event('input'));
-
-        formTitle.textContent = "Edit Your Story";
-        submitBtnText.textContent = "Update Story";
-        submitBtnIcon.className = "fa-solid fa-square-check";
-        cancelEditBtn.classList.remove('hidden');
-        document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
-    } catch (error) {
-        console.error('Error starting edit:', error);
-        showToast('Error editing story');
-    }
-};
-
-cancelEditBtn.addEventListener('click', () => { 
-    storyForm.reset(); 
-    resetFormState(); 
-});
-
-const resetFormState = () => { 
-    try {
-        editStoryId.value = ""; 
-        formTitle.textContent = "Create a Story"; 
-        submitBtnText.textContent = "Publish Story"; 
-        submitBtnIcon.className = "fa-solid fa-paper-plane"; 
-        cancelEditBtn.classList.add('hidden');
-    } catch (error) {
-        console.error('Error resetting form:', error);
-    }
-};
-
+// Share Story
 const shareStory = (id) => {
     try {
         const s = stories.find(x => x.id === id);
@@ -266,14 +229,12 @@ const shareStory = (id) => {
         }
         const shareText = `"${s.title}" by ${s.author}\n\n${s.content}`;
         
-        // Check if Web Share API is available
         if (navigator.share) {
             navigator.share({
                 title: s.title,
                 text: shareText
             }).catch(err => console.log('Share API error:', err));
         } else {
-            // Fallback to clipboard
             navigator.clipboard.writeText(shareText).then(() => {
                 showToast("Story copied to clipboard!");
             }).catch(err => {
@@ -287,6 +248,7 @@ const shareStory = (id) => {
     }
 };
 
+// Show Toast
 const showToast = (msg) => {
     try {
         const old = document.querySelector('.toast-notification'); 
@@ -301,46 +263,26 @@ const showToast = (msg) => {
     }
 };
 
-const toggleLike = (id) => {
+// Toggle Like
+const toggleLike = async (id) => {
     try {
-        stories = stories.map(s => 
-            s.id === id ? { 
-                ...s, 
-                isLiked: !s.isLiked, 
-                likes: !s.isLiked ? (s.likes + 1) : (s.likes - 1) 
-            } : s
-        ); 
-        saveAndRefresh();
+        const story = stories.find(s => s.id === id);
+        if (!story) return;
+
+        const storyRef = doc(db, 'stories', id);
+        await updateDoc(storyRef, {
+            isLiked: !story.isLiked,
+            likes: !story.isLiked ? (story.likes + 1) : (story.likes - 1)
+        });
+
+        await loadStories();
     } catch (error) {
         console.error('Error toggling like:', error);
         showToast('Error updating like');
     }
 };
 
-const deleteStory = (id, e) => {
-    try {
-        if (confirm("Permanently delete this story?")) { 
-            stories = stories.filter(s => s.id !== id); 
-            if (editStoryId.value === id) resetFormState(); 
-            saveAndRefresh(); 
-            showToast("Story deleted successfully!");
-        }
-    } catch (error) {
-        console.error('Error deleting story:', error);
-        showToast('Error deleting story');
-    }
-};
-
-const saveAndRefresh = () => {
-    try {
-        localStorage.setItem('stories_v6', JSON.stringify(stories)); 
-        displayStories(searchInput ? searchInput.value : "");
-    } catch (error) {
-        console.error('Error saving stories:', error);
-        showToast('Error saving stories');
-    }
-};
-
+// Escape HTML
 const escapeHTML = (str) => {
     const map = {
         '&': '&amp;',
@@ -352,9 +294,8 @@ const escapeHTML = (str) => {
     return str.replace(/[&<>"']/g, m => map[m]);
 };
 
-// Initialize app
+// Initialize App
 document.addEventListener('DOMContentLoaded', () => {
-    initializeStories();
     initThemeEngine();
-    displayStories();
+    loadStories();
 });
