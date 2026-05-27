@@ -30,7 +30,7 @@ let stories = [];
 // Load stories from Firestore
 const loadStories = async () => {
     try {
-        const q = query(collection(db, 'stories'), orderBy('createdAt', 'desc'));
+        const q = query(collection(db, 'stories'), orderBy('timestamp', 'desc'));
         const querySnapshot = await getDocs(q);
         stories = [];
         querySnapshot.forEach((doc) => {
@@ -199,7 +199,7 @@ storyForm.addEventListener('submit', async (e) => {
         
         const rTime = calculateReadingTime(content);
 
-        await addDoc(collection(db, 'stories'), {
+        const docRef = await addDoc(collection(db, 'stories'), {
             author: author,
             title: title,
             content: content,
@@ -207,15 +207,20 @@ storyForm.addEventListener('submit', async (e) => {
             isLiked: false,
             readTime: rTime,
             date: formatDate(),
-            createdAt: serverTimestamp()
+            timestamp: Date.now()
         });
 
+        console.log('Story added with ID: ', docRef.id);
         showToast("Story published live!");
         storyForm.reset();
-        await loadStories();
+        
+        // Small delay to ensure Firebase processes the write
+        setTimeout(() => {
+            loadStories();
+        }, 500);
     } catch (error) {
         console.error('Error submitting story:', error);
-        showToast('Error saving story');
+        showToast('Error saving story: ' + error.message);
     }
 });
 
